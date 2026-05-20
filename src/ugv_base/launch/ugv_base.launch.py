@@ -23,11 +23,12 @@ def generate_launch_description():
         executable="motor_driver",
         name="motor_driver",
         parameters=[
+            params,
             {
                 "sim_mode": ParameterValue(
                     LaunchConfiguration("sim_mode"), value_type=bool
                 )
-            }
+            },
         ],
         output="screen",
         # Remapping: Nav2 publishes to /cmd_vel/nav2; teleop_watchdog muxes to /cmd_vel

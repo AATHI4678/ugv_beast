@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ugv_bringup</name>
+  <version>1.0.0</version>
+  <description>Master launch files, RViz config, systemd services, and deployment scripts</description>
+  <maintainer email="robot@delivery.local">UGV Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>ugv_base</depend>
+  <depend>phone_sensor_bridge</depend>
+  <depend>ugv_localization</depend>
+  <depend>ugv_perception</depend>
+  <depend>ugv_navigation</depend>
+  <depend>ugv_interfaces</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

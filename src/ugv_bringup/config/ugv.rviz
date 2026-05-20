@@ -1,0 +1,731 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 0
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Grid1
+        - /TF1
+        - /RobotModel1
+        - /Sensor Layer1
+        - /Sensor Layer1/LaserScan - Raw1
+        - /Sensor Layer1/LaserScan - Filtered1
+        - /Sensor Layer1/IMU1
+        - /Localization Layer1
+        - /Localization Layer1/Odometry - Local EKF1
+        - /Localization Layer1/Odometry - Global EKF (GPS)1
+        - /Localization Layer1/GPS Fix1
+        - /Navigation Layer1
+        - /Navigation Layer1/Global Costmap1
+        - /Navigation Layer1/Local Costmap1
+        - /Navigation Layer1/Global Plan1
+        - /Navigation Layer1/Local Plan1
+        - /Mission Layer1
+      Splitter Ratio: 0.6000000238418579
+    Tree Height: 800
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /SetGoal1
+      - /SetInitialPose1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+
+Visualization Manager:
+  Class: ""
+  Displays:
+
+    # ════════════════════════════════════════════════════════════════════
+    # BASE LAYER
+    # ════════════════════════════════════════════════════════════════════
+
+    - Alpha: 0.4
+      Cell Size: 1.0
+      Class: rviz_default_plugins/Grid
+      Color: 128; 128; 128
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: map
+      Value: true
+
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        base_link:
+          Value: true
+        gps:
+          Value: true
+        imu_link:
+          Value: true
+        laser:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Update Interval: 0
+      Value: true
+
+    # Placeholder — add robot URDF to ugv_base/urdf/ugv_beast.urdf.xacro
+    # and set robot_description parameter to enable 3D model display.
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Enabled: false       # disabled until URDF is provided
+      Links:
+        All Links Enabled: true
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: false
+      Visual Enabled: true
+
+    # ════════════════════════════════════════════════════════════════════
+    # SENSOR LAYER  (group header — use a Marker display as visual anchor)
+    # ════════════════════════════════════════════════════════════════════
+
+    - Class: rviz_default_plugins/Group
+      Displays:
+
+        # /scan — raw RPLIDAR C1 output (dim red: shows noise/sunlight hits)
+        - Alpha: 0.6
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: 0
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/LaserScan
+          Color: 220; 60; 60
+          Color Transformer: FlatColor
+          Decay Time: 0.20000000298023224
+          Enabled: true
+          Invert Rainbow: false
+          Max Color: 255; 255; 255
+          Max Intensity: 4096
+          Min Color: 0; 0; 0
+          Min Intensity: 0
+          Name: LaserScan - Raw
+          Position Transformer: XYZ
+          Queue Size: 5
+          Selectable: true
+          Size (Pixels): 2
+          Size (m): 0.02
+          Style: Points
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /scan
+          Use Fixed Frame: true
+          Use rainbow: false
+          Value: true
+
+        # /scan_filtered — post laser_filters (bright green: what Nav2 actually sees)
+        - Alpha: 1.0
+          Autocompute Intensity Bounds: true
+          Autocompute Value Bounds:
+            Max Value: 10
+            Min Value: 0
+            Value: true
+          Axis: Z
+          Channel Name: intensity
+          Class: rviz_default_plugins/LaserScan
+          Color: 0; 240; 80
+          Color Transformer: FlatColor
+          Decay Time: 0
+          Enabled: true
+          Name: LaserScan - Filtered
+          Position Transformer: XYZ
+          Queue Size: 5
+          Selectable: true
+          Size (Pixels): 3
+          Size (m): 0.03
+          Style: Points
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /scan_filtered
+          Use Fixed Frame: true
+          Use rainbow: false
+          Value: true
+
+        # /imu/data — orientation arrow in imu_link frame
+        # Shows phone IMU orientation; rotate phone and watch it track
+        - Acc X arrow: true
+          Acc Y arrow: true
+          Acc Z arrow: true
+          Acceleration properties:
+            Acc X arrow:
+              Alpha: 1
+              Color: 255; 0; 0
+            Acc Y arrow:
+              Alpha: 1
+              Color: 0; 255; 0
+            Acc Z arrow:
+              Alpha: 1
+              Color: 0; 0; 255
+          Angular Velocity:
+            X arrow:
+              Alpha: 1
+              Color: 255; 128; 0
+            Y arrow:
+              Alpha: 1
+              Color: 128; 255; 0
+            Z arrow:
+              Alpha: 1
+              Color: 0; 128; 255
+          Box properties:
+            Alpha: 0.5
+            Color: 255; 255; 127
+          Class: rviz_imu_plugin/Imu
+          Enabled: true
+          Fixed Frame Orientation: false
+          Name: IMU
+          Orientation properties:
+            Alpha: 0.5
+            Color: 255; 255; 127
+          Scale: 1.0
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /imu/data
+          Value: true
+
+      Enabled: true
+      Name: Sensor Layer
+
+    # ════════════════════════════════════════════════════════════════════
+    # LOCALIZATION LAYER
+    # ════════════════════════════════════════════════════════════════════
+
+    - Class: rviz_default_plugins/Group
+      Displays:
+
+        # Local EKF odometry — smooth wheel+IMU fused position (orange arrow trail)
+        - Angle Tolerance: 0.05
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.3
+              Color: 255; 255; 0
+              Color Style: Unique
+              Frame: Local
+              Offset: 1.0
+              Scale: 1.0
+              Value: true
+            Position:
+              Alpha: 0.25
+              Color: 255; 165; 0
+              Scale: 1.0
+              Value: true
+            Value: true
+          Enabled: true
+          Keep: 200
+          Name: Odometry - Local EKF
+          Position Tolerance: 0.05
+          Shape:
+            Alpha: 0.9
+            Axes Length: 0.5
+            Axes Radius: 0.05
+            Color: 255; 140; 0
+            Head Length: 0.2
+            Head Radius: 0.08
+            Shaft Length: 0.4
+            Shaft Radius: 0.03
+            Value: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /odometry/local
+          Value: true
+
+        # Global EKF odometry — GPS-corrected map-frame position (cyan arrow trail)
+        # Watch for jumps here when GPS updates; should be smoother than raw GPS.
+        - Angle Tolerance: 0.2
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.2
+              Color: 0; 255; 200
+              Color Style: Unique
+              Frame: Local
+              Offset: 1.0
+              Scale: 1.0
+              Value: true
+            Position:
+              Alpha: 0.25
+              Color: 0; 200; 255
+              Scale: 1.5
+              Value: true           # covariance ellipse shows GPS uncertainty
+            Value: true
+          Enabled: true
+          Keep: 100
+          Name: Odometry - Global EKF (GPS)
+          Position Tolerance: 0.3
+          Shape:
+            Alpha: 0.8
+            Axes Length: 0.6
+            Axes Radius: 0.06
+            Color: 0; 220; 255
+            Head Length: 0.25
+            Head Radius: 0.10
+            Shaft Length: 0.45
+            Shaft Radius: 0.04
+            Value: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /odometry/global
+          Value: true
+
+        # Raw GPS fix — shows the raw lat/lon position projected to map frame.
+        # Enabled requires rviz_satellite or navsat display; using Odometry from
+        # navsat_transform output (/odometry/gps) which is already in map frame.
+        - Angle Tolerance: 0.5
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.0
+              Value: false
+            Position:
+              Alpha: 0.35
+              Color: 255; 50; 200
+              Scale: 1.0
+              Value: true           # large ellipse = raw GPS uncertainty
+            Value: true
+          Enabled: true
+          Keep: 50
+          Name: GPS Fix (navsat_transform output)
+          Position Tolerance: 0.5
+          Shape:
+            Alpha: 0.5
+            Color: 200; 50; 255
+            Head Length: 0.15
+            Head Radius: 0.06
+            Shaft Length: 0.3
+            Shaft Radius: 0.025
+            Value: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /odometry/gps
+          Value: true
+
+        # GPS filtered — navsat_transform output smoothed by EKF
+        - Alpha: 1.0
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 180; 0; 255
+          Enabled: true
+          Head Diameter: 0.2
+          Head Length: 0.1
+          Length: 0.3
+          Line Style: Lines
+          Line Width: 0.03
+          Name: GPS Track (filtered)
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.03
+          Shaft Diameter: 0.1
+          Shaft Length: 0.1
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /gps/filtered
+          Value: false    # disable by default (noisy on poor GPS); enable for diagnostics
+
+      Enabled: true
+      Name: Localization Layer
+
+    # ════════════════════════════════════════════════════════════════════
+    # NAVIGATION LAYER
+    # ════════════════════════════════════════════════════════════════════
+
+    - Class: rviz_default_plugins/Group
+      Displays:
+
+        # Global costmap — rolling 60m×60m at 0.2m/cell; shows known obstacles
+        - Alpha: 0.55
+          Class: rviz_default_plugins/Map
+          Color Scheme: costmap
+          Draw Behind: true
+          Enabled: true
+          Name: Global Costmap
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /global_costmap/costmap
+          Update Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /global_costmap/costmap_updates
+          Use Timestamp: false
+          Value: true
+
+        # Local costmap — 8m×8m at 0.1m/cell around robot; real-time obstacles
+        - Alpha: 0.80
+          Class: rviz_default_plugins/Map
+          Color Scheme: costmap
+          Draw Behind: false
+          Enabled: true
+          Name: Local Costmap
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /local_costmap/costmap
+          Update Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /local_costmap/costmap_updates
+          Use Timestamp: false
+          Value: true
+
+        # Global plan — Nav2 NavFn planner output (blue line, robot to goal)
+        - Alpha: 1.0
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 30; 80; 255
+          Enabled: true
+          Head Diameter: 0.3
+          Head Length: 0.2
+          Length: 0.3
+          Line Style: Lines
+          Line Width: 0.05
+          Name: Global Plan
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0.02
+          Pose Color: 50; 100; 255
+          Pose Style: Arrows
+          Radius: 0.03
+          Shaft Diameter: 0.1
+          Shaft Length: 0.2
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /plan
+          Value: true
+
+        # Local plan — MPPI controller's selected trajectory (orange)
+        - Alpha: 1.0
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 255; 140; 0
+          Enabled: true
+          Head Diameter: 0.25
+          Head Length: 0.15
+          Length: 0.2
+          Line Style: Lines
+          Line Width: 0.04
+          Name: Local Plan (MPPI)
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0.04
+          Pose Color: 255; 165; 50
+          Pose Style: Arrows
+          Radius: 0.03
+          Shaft Diameter: 0.08
+          Shaft Length: 0.15
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /local_plan
+          Value: true
+
+        # Collision monitor — stop and slow polygons around robot chassis
+        - Class: rviz_default_plugins/Polygon
+          Color: 255; 0; 0
+          Enabled: true
+          Name: Collision Stop Zone
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /polygon_stop
+          Value: true
+
+        - Class: rviz_default_plugins/Polygon
+          Color: 255; 165; 0
+          Enabled: true
+          Name: Collision Slow Zone
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /polygon_slow
+          Value: true
+
+        # Local costmap robot footprint
+        - Alpha: 0.8
+          Class: rviz_default_plugins/Polygon
+          Color: 25; 255; 0
+          Enabled: true
+          Name: Robot Footprint
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /local_costmap/published_footprint
+          Value: true
+
+        # Nav2 goal pose — shown when you use the SetGoal tool
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: Nav Goal Markers
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /goal_pose
+          Value: false    # built-in SetGoal tool shows the goal arrow natively
+
+        # Waypoint markers — published by mission_manager when a mission is active
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Delivery Waypoints
+          Namespaces:
+            waypoints: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /delivery_waypoints_markers
+          Value: true
+
+      Enabled: true
+      Name: Navigation Layer
+
+    # ════════════════════════════════════════════════════════════════════
+    # MISSION LAYER
+    # ════════════════════════════════════════════════════════════════════
+
+    - Class: rviz_default_plugins/Group
+      Displays:
+
+        # Delivery status — rendered by a future dashboard node as a MarkerArray
+        # (text markers showing state, mission ID, battery, waypoints remaining)
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Delivery Status HUD
+          Namespaces:
+            status_hud: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /delivery_status_markers
+          Value: true
+
+        # Teleop override indicator
+        - Class: rviz_default_plugins/Marker
+          Enabled: true
+          Name: Teleop Override Indicator
+          Namespaces:
+            {}
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /teleop_indicator
+          Value: false
+
+      Enabled: true
+      Name: Mission Layer
+
+    # ════════════════════════════════════════════════════════════════════
+    # DIAGNOSTICS LAYER
+    # ════════════════════════════════════════════════════════════════════
+
+    - Class: rviz_default_plugins/Group
+      Displays:
+
+        # Full diagnostics — use rqt_runtime_monitor for a table view;
+        # this topic echoes all DiagnosticArray messages for quick inspection.
+        - Class: rviz_common/Displays
+          Enabled: false
+          Name: Diagnostics (use rqt_runtime_monitor)
+          Value: false
+
+      Enabled: false
+      Name: Diagnostics Layer
+
+  Enabled: true
+
+  Global Options:
+    Background Color: 38; 38; 42
+    Fixed Frame: map
+    Frame Rate: 25           # 25 fps saves ~20% CPU vs 30 fps on Pi 4B
+
+  Name: root
+
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 255; 0
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Single click: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /clicked_point
+
+  Value: true
+
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Invert Z Axis: false
+      Name: Top-Down (map)
+      Near Clip Distance: 0.009999999776482582
+      Scale: 18.0                 # ~18 px/m → comfortable 30m view at 1080p
+      Target Frame: base_link     # camera follows the robot
+      Value: TopDownOrtho (rviz_default_plugins)
+      X: 0
+      Y: 0
+    Saved:
+      - Class: rviz_default_plugins/TopDownOrtho
+        Name: Top-Down wide (mission overview)
+        Near Clip Distance: 0.009999999776482582
+        Scale: 5.0                # ~5 px/m → ~200m view for full mission
+        Target Frame: map
+        Value: TopDownOrtho (rviz_default_plugins)
+        X: 0
+        Y: 0
+      - Class: rviz_default_plugins/Orbit
+        Distance: 8.0
+        Enable Stereo Rendering:
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05
+        Invert Z Axis: false
+        Name: 3D perspective
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 0.785398          # 45° tilt
+        Target Frame: base_link
+        Value: Orbit (rviz_default_plugins)
+        Yaw: 0.785398

@@ -1,0 +1,65 @@
+# =============================================================================
+# Outdoor laser filter chain for RPLIDAR C1
+#
+# Pipeline: /scan → [range] → [shadows] → [speckle] → /scan_filtered
+#
+# The filtered scan is what Nav2's local costmap sees. Aggressive filtering
+# reduces phantom obstacles from sunlight and reflective surfaces at the cost
+# of occasionally missing real objects at range extremes (acceptable trade-off
+# for outdoor delivery at sidewalk speeds).
+#
+# Tuning guidance:
+#   - Tighten upper_threshold if phantom obstacles appear far from robot
+#   - Loosen speckle filter_window if edges of real obstacles are missed
+#   - Add angular range filter (angular_min/max) to black out angles occluded
+#     by the robot chassis (e.g., if the robot body enters the scan plane)
+# =============================================================================
+
+scan_filter_chain:
+  ros__parameters:
+    scan_filter_chain:
+
+      # 1. Range filter ─────────────────────────────────────────────────────
+      # Drop returns outside [lower, upper] metres.
+      # lower_threshold: 0.15 m — avoids self-hit from chassis edges
+      # upper_threshold: 8.0 m — RPLIDAR C1 max reliable outdoor range
+      #                           (sunlight degrades accuracy beyond 6-8 m)
+      - name: range
+        type: laser_filters/LaserScanRangeFilter
+        params:
+          use_message_range_limits: false
+          lower_threshold: 0.15
+          upper_threshold: 8.0
+          lower_replacement_value: .inf    # replace out-of-range with inf (free space)
+          upper_replacement_value: .inf
+
+      # 2. Angular range filter ─────────────────────────────────────────────
+      # Black out angles where the robot's own body reflects the laser.
+      # Uncomment and adjust if the UGV Beast chassis enters the scan plane.
+      # - name: angular_bounds
+      #   type: laser_filters/LaserScanAngularBoundsFilter
+      #   params:
+      #     lower_angle: -2.618   # -150 deg
+      #     upper_angle:  2.618   #  150 deg
+
+      # 3. Shadow filter ────────────────────────────────────────────────────
+      # Remove "shadow" points that appear just behind obstacle edges due to
+      # scan geometry. Common outdoors where posts/fences create long shadows.
+      - name: shadows
+        type: laser_filters/ScanShadowsFilter
+        params:
+          min_angle: 10.0       # degrees; ignore shadows with angle < this
+          max_angle: 170.0
+          neighbors: 1
+          window: 1
+
+      # 4. Speckle filter ───────────────────────────────────────────────────
+      # Remove isolated single-point returns (birds, insects, sunlight glints).
+      # filter_type 0 = distance-based; filter_type 1 = consecutive count.
+      - name: speckle
+        type: laser_filters/LaserScanSpeckleFilter
+        params:
+          filter_type: 0          # 0 = RadiusOutlier
+          max_range: 8.0
+          max_range_difference: 0.5   # points > 0.5 m from neighbours → speckle
+          filter_window: 2

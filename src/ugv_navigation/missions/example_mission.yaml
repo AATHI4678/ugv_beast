@@ -1,0 +1,39 @@
+# Example delivery mission file
+# Edit lat/lon to real coordinates before use.
+# Load with:
+#   ros2 run ugv_navigation waypoint_converter \
+#     --ros-args -p mission_file:=$(ros2 pkg prefix ugv_navigation)/share/ugv_navigation/missions/example_mission.yaml
+
+mission:
+  id: "delivery_001"
+  description: "Driveway → front door → back porch → return staging area"
+  arrival_tolerance_m: 2.0   # metres; matches GPS accuracy
+
+  waypoints:
+    - id: "staging_area"
+      lat: 44.305488
+      lon: -79.574232
+      alt: 234.0
+      label: "Pickup / staging area"
+      dwell_s: 5              # pause here for package load confirmation
+
+    - id: "front_door"
+      lat: 44.305612
+      lon: -79.574109
+      alt: 234.0
+      label: "Front door delivery"
+      dwell_s: 10             # pause for recipient to collect
+
+    - id: "back_porch"
+      lat: 44.305540
+      lon: -79.574350
+      alt: 234.0
+      label: "Back porch secondary drop"
+      dwell_s: 5
+
+    - id: "return_staging"
+      lat: 44.305488
+      lon: -79.574232
+      alt: 234.0
+      label: "Return to staging area"
+      dwell_s: 0

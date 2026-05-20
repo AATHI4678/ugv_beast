@@ -1,0 +1,5 @@
+bool stop          # true = engage e-stop, false = release
+string reason      # human-readable reason for audit log
+---
+bool success
+string message

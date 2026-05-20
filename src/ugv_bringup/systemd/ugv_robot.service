@@ -1,0 +1,36 @@
+[Unit]
+Description=UGV Beast Delivery Robot ROS 2 Stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+# Source ROS 2 and workspace
+Environment="RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
+Environment="ROS_DOMAIN_ID=0"
+ExecStartPre=/bin/bash -c "source /opt/ros/jazzy/setup.bash && source /home/ubuntu/ugv_ws/install/setup.bash"
+
+ExecStart=/bin/bash -c "\
+  source /opt/ros/jazzy/setup.bash && \
+  source /home/ubuntu/ugv_ws/install/setup.bash && \
+  ros2 launch ugv_bringup robot.launch.py \
+    phone_ip:=192.168.4.2 \
+    home_latitude:=44.305488 \
+    home_longitude:=-79.574232 \
+    serial_port:=/dev/rplidar"
+
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# Limit log size (ROS logging can fill SD cards)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ugv_robot
+
+[Install]
+WantedBy=multi-user.target

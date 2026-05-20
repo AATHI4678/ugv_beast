@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi WiFi Hotspot for Phone Sensor Bridge
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nmcli dev wifi hotspot ifname wlan0 ssid PiRobot password "robot1234" band bg
+ExecStop=/usr/bin/nmcli connection down Hotspot
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+std_msgs/Header header
+float32 left_velocity_mps
+float32 right_velocity_mps
+float32 left_effort_percent
+float32 right_effort_percent
+bool left_fault
+bool right_fault
+float32 temperature_c

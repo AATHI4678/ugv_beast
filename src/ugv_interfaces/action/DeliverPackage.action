@@ -1,0 +1,18 @@
+# Goal: a named mission with ordered GPS waypoints
+string mission_id
+string[] waypoint_ids
+float64[] latitudes
+float64[] longitudes
+float32 arrival_tolerance_m
+bool return_home_after
+---
+# Result
+bool success
+string final_waypoint_reached
+string failure_reason
+float32 total_distance_m
+float32 elapsed_seconds
+---
+# Feedback
+ugv_interfaces/DeliveryStatus status
+geometry_msgs/Pose current_pose

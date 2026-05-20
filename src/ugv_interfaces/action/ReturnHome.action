@@ -1,0 +1,13 @@
+# Goal
+float64 home_latitude
+float64 home_longitude
+float32 arrival_tolerance_m
+---
+# Result
+bool success
+string failure_reason
+float32 elapsed_seconds
+---
+# Feedback
+float32 distance_remaining_m
+float32 estimated_seconds_remaining

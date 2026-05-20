@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+CycloneDDS configuration optimized for Raspberry Pi 4B.
+
+Key settings:
+  - Reduce multicast traffic (hotspot WiFi doesn't handle multicast well)
+  - Limit thread priorities (Pi has limited cores)
+  - Disable peer discovery scan interval (save CPU)
+
+Usage: export CYCLONEDDS_URI=file://$(ros2 pkg prefix ugv_bringup)/share/ugv_bringup/config/cyclonedds.xml
+Or add to ~/.bashrc.
+-->
+<CycloneDDS>
+  <Domain>
+    <General>
+      <Interfaces>
+        <NetworkInterface name="wlan0" priority="default" multicast="false"/>
+      </Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>10</MaxAutoParticipantIndex>
+    </Discovery>
+    <Internal>
+      <Watermarks>
+        <WhcHigh>500kB</WhcHigh>
+      </Watermarks>
+    </Internal>
+  </Domain>
+</CycloneDDS>

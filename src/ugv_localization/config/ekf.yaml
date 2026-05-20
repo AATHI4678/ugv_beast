@@ -1,0 +1,223 @@
+# =============================================================================
+# Dual EKF configuration — robot onboard IMU + wheel odometry + phone GPS
+#
+# IMU source change: IMU now comes from the robot's ESP32 (UART serial),
+# NOT from the phone app. This gives:
+#   - Lower latency (~1 ms UART vs 10–50 ms WiFi)
+#   - No dependency on phone WiFi for IMU data
+#   - Fixed, known mounting frame (no phone orientation ambiguity)
+#   - Gravity included in acceleration (EKF removes it via flag below)
+#
+# Sensor roles:
+#   /imu/data    → robot IMU via ESP32 UART (motor_driver node)
+#   /wheel/odom  → encoder odometry via ESP32 UART (motor_driver node)
+#   /gps/fix     → phone GPS via WebSocket (phone_sensor_bridge node)
+#   /odometry/gps → navsat_transform output: lat/lon → map XY (global EKF)
+#
+# Key differences from phone-IMU config:
+#   imu0_relative: false          — robot IMU is rigidly mounted; absolute orientation valid
+#   imu0_remove_gravitational_acceleration: true  — robot IMU includes gravity
+#   sensor_timeout: 0.1           — UART is reliable; short timeout catches real failures
+#   imu0_queue_size: 10           — UART is low-jitter; smaller buffer is fine
+#   Tighter process noise on yaw  — robot IMU gyro is more stable than phone WiFi stream
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# LOCAL EKF: odom frame
+# Smooth, continuous odometry for Nav2's local planner.
+# Fuses: wheel odometry + IMU angular velocity + IMU linear acceleration
+# GPS deliberately excluded: GPS jumps cause lurching in local planner.
+# ---------------------------------------------------------------------------
+ekf_filter_node_odom:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.1           # UART is reliable; 100ms timeout detects real failures
+    two_d_mode: true
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: true
+    debug: false
+    publish_tf: true
+    publish_acceleration: false
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom             # LOCAL EKF publishes odom → base_link
+
+    # --- Wheel odometry ---
+    # State vector indices:
+    #   [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom0: /wheel/odom
+    odom0_config: [false, false, false,    # x, y, z
+                   false, false, false,    # roll, pitch, yaw
+                   true,  false, false,    # vx (forward speed)
+                   false, false, true,     # vyaw (angular rate)
+                   false, false, false]    # acceleration
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+
+    # --- Robot IMU (ESP32 UART) ---
+    imu0: /imu/data
+    imu0_config: [false, false, false,     # position — never fuse IMU position
+                  false, false, true,      # yaw — use if imu_has_orientation: true
+                                           # ignored automatically if orientation_covariance[0]==-1
+                  false, false, false,     # velocity — wheel odom provides this
+                  false, false, true,      # vyaw — gyro yaw rate (always available)
+                  true,  false, false]     # ax — forward acceleration
+    imu0_queue_size: 10                    # UART is low-jitter; small buffer is fine
+    imu0_differential: false
+    imu0_relative: false                   # robot IMU is fixed mount; not relative
+    # Robot IMU reports acceleration WITH gravity included.
+    # robot_localization will subtract 9.81 m/s² from the Z axis before fusing.
+    imu0_remove_gravitational_acceleration: true
+
+    process_noise_covariance: [0.05, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0.05, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0.06, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0.03, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0.03, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0.04, 0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0.025, 0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0.025, 0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0.04, 0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0.01, 0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0.01, 0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0.015,0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01, 0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.01, 0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.015]
+
+    initial_estimate_covariance: [1e-9, 0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    1e-9, 0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    1e-9, 0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0.5,  0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0.5,  0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0.5,  0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0.1,   0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0.1,   0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0.1,   0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0.5,  0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0.5,  0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0.5]
+
+# ---------------------------------------------------------------------------
+# GLOBAL EKF: map frame
+# GPS-corrected absolute position for Nav2's global planner.
+# Fuses: wheel odometry + robot IMU + GPS position + GPS velocity
+# ---------------------------------------------------------------------------
+ekf_filter_node_map:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+    publish_tf: true
+    publish_acceleration: false
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map              # GLOBAL EKF publishes map → odom
+
+    # --- Wheel odometry ---
+    odom0: /wheel/odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+
+    # --- Robot IMU ---
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  true,  false, false]
+    imu0_queue_size: 10
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # --- GPS position (lat/lon → map XY via navsat_transform) ---
+    odom1: /odometry/gps
+    odom1_config: [true,  true,  false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    odom1_queue_size: 5
+    odom1_differential: false
+    odom1_relative: false
+
+    # --- GPS velocity from phone (ENU world frame) ---
+    # The phone still provides GPS-derived velocity via the /GPS WebSocket.
+    # This is published as part of the GPS message's speed field.
+    # If your phone app doesn't send velocity, set this to false or remove it.
+    # Note: /gps/vel is NO LONGER published by this bridge (IMU route removed).
+    # To retain GPS velocity fusion, re-add speed parsing to bridge.py
+    # from the "speed" field in the location JSON. Left here as a placeholder.
+    # twist0: /gps/vel
+    # twist0_config: [false, false, false, false, false, false,
+    #                 true,  true,  false, false, false, false,
+    #                 false, false, false]
+
+    process_noise_covariance: [0.05, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0.05, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0.06, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0.03, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0.03, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0.04, 0,     0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0.025, 0,     0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0.025, 0,    0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0.04, 0,    0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0.01, 0,    0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0.01, 0,    0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0.015,0,    0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01, 0,    0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.01, 0,
+                               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.015]
+
+    initial_estimate_covariance: [1.0,  0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    1.0,  0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    1.0,  0,    0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0.5,  0,    0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0.5,  0,    0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0.5,  0,     0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0.1,   0,     0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0.1,   0,     0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0.1,   0,    0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0.5,  0,    0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0.5,  0,
+                                  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0.5]
+
+# ---------------------------------------------------------------------------
+# navsat_transform_node
+# Converts /gps/fix (lat/lon) → /odometry/gps (map-frame XY Odometry)
+# ---------------------------------------------------------------------------
+navsat_transform_node:
+  ros__parameters:
+    frequency: 30.0
+    delay: 3.0
+
+    # *** CRITICAL: look up your location at ngdc.noaa.gov/geomag ***
+    # Example: Innisfil, ON, Canada ≈ -10.5° = -0.1833 rad
+    magnetic_declination_radians: -0.1833
+
+    yaw_offset: 0.0
+    zero_altitude: true
+    broadcast_utm_transform: true
+    broadcast_utm_transform_as_parent_frame: false
+    publish_filtered_gps: true
+    use_odometry_yaw: false       # use IMU yaw, not GPS course-over-ground
+    wait_for_datum: false

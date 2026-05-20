@@ -1,0 +1,16 @@
+phone_sensor_bridge:
+  ros__parameters:
+    # ── Network ──────────────────────────────────────────────────────────
+    # When Pi hosts a hotspot (recommended), Android gets a DHCP address.
+    # Check with: ip neigh show dev wlan0  or  nmap -sn 192.168.4.0/24
+    phone_ip: "192.168.4.2"
+    phone_port: 2343
+    gps_route: "/GPS"           # GPS only — IMU now comes from robot hardware
+
+    # ── Frames ───────────────────────────────────────────────────────────
+    gps_frame_id: "gps"
+
+    # ── Reconnection ─────────────────────────────────────────────────────
+    reconnect_base_delay_s: 2.0
+    reconnect_max_delay_s: 30.0
+    connection_timeout_s: 10.0

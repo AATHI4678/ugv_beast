@@ -1,0 +1,11 @@
+# Request: list of GPS waypoints for a delivery mission
+string mission_id
+string[] waypoint_ids
+float64[] latitudes
+float64[] longitudes
+float64[] altitudes        # can be zeros; navsat_transform handles this
+float32 arrival_tolerance_m   # metres, default 2.0
+---
+# Response
+bool accepted
+string message

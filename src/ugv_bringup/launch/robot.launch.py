@@ -21,13 +21,17 @@ Usage:
 """
 
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    DeclareLaunchArgument, IncludeLaunchDescription,
-    TimerAction, LogInfo,
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    LogInfo,
+    TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitution import Substitution
 from launch.substitutions import LaunchConfiguration
 
 
@@ -39,13 +43,12 @@ def launch(package, filename, **kwargs):
     """Helper: include a launch file with optional args."""
     extra = []
     for k, v in kwargs.items():
-        if hasattr(v, '__iter__') and not isinstance(v, str):
+        if isinstance(v, (str, Substitution)):
             extra.append((k, v))
         else:
             extra.append((k, str(v)))
     return IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg(package), 'launch', filename)),
+        PythonLaunchDescriptionSource(os.path.join(pkg(package), "launch", filename)),
         launch_arguments=extra,
     )
 
@@ -53,39 +56,49 @@ def launch(package, filename, **kwargs):
 def generate_launch_description():
     # ── Arguments ──────────────────────────────────────────────────────
     args = [
-        DeclareLaunchArgument('phone_ip', default_value='192.168.4.2'),
-        DeclareLaunchArgument('home_latitude', default_value='0.0'),
-        DeclareLaunchArgument('home_longitude', default_value='0.0'),
-        DeclareLaunchArgument('sim_mode', default_value='false'),
-        DeclareLaunchArgument('serial_port', default_value='/dev/rplidar'),
-        DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument("phone_ip", default_value="192.168.4.2"),
+        DeclareLaunchArgument("home_latitude", default_value="0.0"),
+        DeclareLaunchArgument("home_longitude", default_value="0.0"),
+        DeclareLaunchArgument("sim_mode", default_value="false"),
+        DeclareLaunchArgument("serial_port", default_value="/dev/rplidar"),
+        DeclareLaunchArgument("use_sim_time", default_value="false"),
     ]
 
     # ── Stage 1: Hardware drivers ───────────────────────────────────────
-    base = launch('ugv_base', 'ugv_base.launch.py',
-                  sim_mode=LaunchConfiguration('sim_mode'))
+    base = launch(
+        "ugv_base", "ugv_base.launch.py", sim_mode=LaunchConfiguration("sim_mode")
+    )
 
-    phone = launch('phone_sensor_bridge', 'phone_sensor_bridge.launch.py',
-                   phone_ip=LaunchConfiguration('phone_ip'))
+    phone = launch(
+        "phone_sensor_bridge",
+        "phone_sensor_bridge.launch.py",
+        phone_ip=LaunchConfiguration("phone_ip"),
+    )
 
-    perception = launch('ugv_perception', 'perception.launch.py',
-                        serial_port=LaunchConfiguration('serial_port'))
+    perception = launch(
+        "ugv_perception",
+        "perception.launch.py",
+        serial_port=LaunchConfiguration("serial_port"),
+    )
 
     # ── Stage 2: Localization (delay 3s to let hardware come up) ───────
     localization = TimerAction(
         period=3.0,
-        actions=[launch('ugv_localization', 'localization.launch.py')],
+        actions=[launch("ugv_localization", "localization.launch.py")],
     )
 
     # ── Stage 3: Navigation (delay 8s to let EKF converge) ─────────────
     navigation = TimerAction(
         period=8.0,
         actions=[
-            LogInfo(msg='Starting Nav2 (EKF should be converged by now)'),
-            launch('ugv_navigation', 'navigation.launch.py',
-                   home_latitude=LaunchConfiguration('home_latitude'),
-                   home_longitude=LaunchConfiguration('home_longitude'),
-                   use_sim_time=LaunchConfiguration('use_sim_time')),
+            LogInfo(msg="Starting Nav2 (EKF should be converged by now)"),
+            launch(
+                "ugv_navigation",
+                "navigation.launch.py",
+                home_latitude=LaunchConfiguration("home_latitude"),
+                home_longitude=LaunchConfiguration("home_longitude"),
+                use_sim_time=LaunchConfiguration("use_sim_time"),
+            ),
         ],
     )
 

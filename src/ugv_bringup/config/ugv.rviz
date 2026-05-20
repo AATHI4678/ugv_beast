@@ -115,7 +115,7 @@ Visualization Manager:
     # SENSOR LAYER  (group header — use a Marker display as visual anchor)
     # ════════════════════════════════════════════════════════════════════
 
-    - Class: rviz_default_plugins/Group
+    - Class: rviz_common/Group
       Displays:
 
         # /scan — raw RPLIDAR C1 output (dim red: shows noise/sunlight hits)
@@ -239,7 +239,7 @@ Visualization Manager:
     # LOCALIZATION LAYER
     # ════════════════════════════════════════════════════════════════════
 
-    - Class: rviz_default_plugins/Group
+    - Class: rviz_common/Group
       Displays:
 
         # Local EKF odometry — smooth wheel+IMU fused position (orange arrow trail)
@@ -398,7 +398,7 @@ Visualization Manager:
     # NAVIGATION LAYER
     # ════════════════════════════════════════════════════════════════════
 
-    - Class: rviz_default_plugins/Group
+    - Class: rviz_common/Group
       Displays:
 
         # Global costmap — rolling 60m×60m at 0.2m/cell; shows known obstacles
@@ -588,7 +588,7 @@ Visualization Manager:
     # MISSION LAYER
     # ════════════════════════════════════════════════════════════════════
 
-    - Class: rviz_default_plugins/Group
+    - Class: rviz_common/Group
       Displays:
 
         # Delivery status — rendered by a future dashboard node as a MarkerArray
@@ -629,7 +629,7 @@ Visualization Manager:
     # DIAGNOSTICS LAYER
     # ════════════════════════════════════════════════════════════════════
 
-    - Class: rviz_default_plugins/Group
+    - Class: rviz_common/Group
       Displays:
 
         # Full diagnostics — use rqt_runtime_monitor for a table view;

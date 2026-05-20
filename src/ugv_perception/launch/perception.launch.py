@@ -19,6 +19,7 @@ udev rule for RPLIDAR C1 (run once):
 """
 
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -27,29 +28,33 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    pkg = get_package_share_directory('ugv_perception')
-    filter_config = os.path.join(pkg, 'config', 'scan_filter.yaml')
+    pkg = get_package_share_directory("ugv_perception")
+    filter_config = os.path.join(pkg, "config", "scan_filter.yaml")
 
     serial_port_arg = DeclareLaunchArgument(
-        'serial_port', default_value='/dev/rplidar',
-        description='Serial port for RPLIDAR C1 (udev symlink or /dev/ttyUSB0)')
+        "serial_port",
+        default_value="/dev/rplidar",
+        description="Serial port for RPLIDAR C1 (udev symlink or /dev/ttyUSB0)",
+    )
 
     # ── RPLIDAR C1 driver ────────────────────────────────────────────────
     # Uses sllidar_ros2 from Slamtec. Publishes /scan (sensor_msgs/LaserScan).
     # frame_id must match the TF static transform: 'laser'
     lidar_node = Node(
-        package='sllidar_ros2',
-        executable='sllidar_node',
-        name='sllidar_node',
-        parameters=[{
-            'serial_port': LaunchConfiguration('serial_port'),
-            'serial_baudrate': 460800,          # C1 uses 460800 baud
-            'frame_id': 'laser',
-            'inverted': False,
-            'angle_compensate': True,
-            'scan_mode': 'Boost',               # C1 Boost mode: 8000 samples/s
-        }],
-        output='screen',
+        package="sllidar_ros2",
+        executable="sllidar_node",
+        name="sllidar_node",
+        parameters=[
+            {
+                "serial_port": LaunchConfiguration("serial_port"),
+                "serial_baudrate": 460800,  # C1 uses 460800 baud
+                "frame_id": "laser",
+                "inverted": False,
+                "angle_compensate": True,
+                "scan_mode": "Standard",
+            }
+        ],
+        output="screen",
     )
 
     # ── Laser filter chain ───────────────────────────────────────────────
@@ -57,15 +62,15 @@ def generate_launch_description():
     # Input:  /scan         (raw from lidar)
     # Output: /scan_filtered (cleaned, fed to Nav2)
     filter_node = Node(
-        package='laser_filters',
-        executable='scan_to_scan_filter_chain',
-        name='scan_filter_chain',
+        package="laser_filters",
+        executable="scan_to_scan_filter_chain",
+        name="scan_filter_chain",
         parameters=[filter_config],
         remappings=[
-            ('scan', '/scan'),
-            ('scan_filtered', '/scan_filtered'),
+            ("scan", "/scan"),
+            ("scan_filtered", "/scan_filtered"),
         ],
-        output='screen',
+        output="screen",
     )
 
     return LaunchDescription([serial_port_arg, lidar_node, filter_node])

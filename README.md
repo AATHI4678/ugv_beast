@@ -1,8 +1,14 @@
-# UGV Beast Delivery Robot — ROS 2 Jazzy Workspace
+# UGV Rover Delivery Robot — ROS 2 Jazzy Workspace
 
-**Hardware:** WaveShare UGV Beast · Raspberry Pi 4B · RPLIDAR C1 · Android phone (GPS + IMU via WebSocket)  
-**Software:** ROS 2 Jazzy on Ubuntu 24.04 Server  
+**Hardware:** WaveShare UGV Rover (6-wheel 4WD skid-steer) · Raspberry Pi 4B · RPLIDAR C1 · ESP32/ICM-20948 IMU · Android phone (GPS only, via WebSocket)
+**Software:** ROS 2 Jazzy on Ubuntu 24.04 Server
 **Target accuracy:** 1–3 m outdoor position · obstacle avoidance via 2D lidar
+
+> **Architecture note:** the IMU is the **ESP32's ICM-20948**, read over GPIO
+> UART by `motor_driver`. The phone provides **GPS only**. An earlier prototype
+> streamed IMU from the phone as well; that path is retired. See
+> `PYNAVIGATION.md` for the migration history and `PYPROGRESS.md` for the
+> current architecture.
 
 ---
 
@@ -11,8 +17,8 @@
 ```
 ugv_ws/src/
 ├── ugv_interfaces/        Custom msgs, srvs, actions
-├── ugv_base/              Motor driver (UART→ESP32), battery monitor, teleop watchdog
-├── phone_sensor_bridge/   WebSocket client (phone app IMU+GPS) → /imu/data /gps/fix /gps/vel
+├── ugv_base/              Motor driver (UART→ESP32, incl. IMU), battery monitor, teleop watchdog
+├── phone_sensor_bridge/   WebSocket client (phone GPS) → /gps/fix /gps/vel
 ├── ugv_localization/      Dual EKF + navsat_transform + TF + localization watchdog
 ├── ugv_perception/        RPLIDAR C1 driver + outdoor laser filter chain
 ├── ugv_navigation/        Nav2 outdoor config + mission manager + waypoint converter
@@ -25,10 +31,10 @@ ugv_ws/src/
 |---|---|---|---|
 | `/scan` | LaserScan | sllidar_ros2 | laser_filters |
 | `/scan_filtered` | LaserScan | laser_filters | Nav2 costmaps |
-| `/imu/data` | Imu | phone_sensor_bridge | both EKFs, navsat_transform |
+| `/imu/data` | Imu | motor_driver (ESP32/UART) | both EKFs |
+| `/wheel/odom` | Odometry | motor_driver (ESP32 encoders) | both EKFs |
 | `/gps/fix` | NavSatFix | phone_sensor_bridge | navsat_transform |
 | `/gps/vel` | TwistWithCovarianceStamped | phone_sensor_bridge | global EKF |
-| `/wheel/odom` | Odometry | motor_driver | both EKFs |
 | `/odometry/gps` | Odometry | navsat_transform | global EKF |
 | `/odometry/local` | Odometry | local EKF | Nav2, debugging |
 | `/odometry/global` | Odometry | global EKF | Nav2 global planner |
@@ -39,6 +45,10 @@ ugv_ws/src/
 | `/battery_state` | BatteryState | battery_monitor | mission_manager |
 | `/e_stop` | Bool | localization_watchdog / operator | motor_driver |
 | `/localization_ok` | Bool | localization_watchdog | mission_manager |
+
+> Note: `navsat_transform` consumes `/imu/data` for the GPS heading transform
+> only if `use_odometry_yaw: false`. With the EKF providing fused yaw, prefer
+> `use_odometry_yaw: true` — see `PYPROGRESS.md § 5`.
 
 ---
 
@@ -51,7 +61,7 @@ ugv_ws/src/
 bash ~/ugv_ws/src/ugv_bringup/scripts/setup_pi.sh
 ```
 
-Or manually follow the steps in `PYNAVIGATION.md § Stage 0`.
+Or manually follow the steps in `PYNAVIGATION.md` Part A (A0).
 
 ### 2. Clone the RPLIDAR driver
 
@@ -63,8 +73,8 @@ git clone https://github.com/Slamtec/sllidar_ros2.git
 ### 3. Install Python dependencies
 
 ```bash
-pip3 install websockets
-sudo apt install python3-pyserial
+pip3 install websockets    # phone GPS WebSocket bridge
+sudo apt install python3-pyserial   # ESP32 UART link
 ```
 
 ### 4. Install ROS dependencies
@@ -95,6 +105,10 @@ export ROS_DOMAIN_ID=0
 # export CYCLONEDDS_URI=file://$(ros2 pkg prefix ugv_bringup)/share/ugv_bringup/config/cyclonedds.xml
 ```
 
+> The ESP32 link also needs the Pi's **GPIO UART** explicitly enabled
+> (`enable_uart=1`, `dtoverlay=disable-bt`, serial console disabled). See
+> `PYPROGRESS.md § 9`.
+
 ---
 
 ## Deployment Instructions
@@ -103,37 +117,51 @@ export ROS_DOMAIN_ID=0
 
 #### A. Set magnetic declination
 
-Look up your location at https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml  
+Look up your location at https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml
 Convert degrees to radians and edit `ugv_localization/config/ekf.yaml`:
 ```yaml
 navsat_transform_node:
   ros__parameters:
-    magnetic_declination_radians: -0.1833   # ← your value here
+    magnetic_declination_radians: <your value>   # radians, location-specific
 ```
 
 #### B. Measure robot geometry
 
-Verify `ugv_base/config/motor_params.yaml`:
+Verify `ugv_base/config/motor_params.yaml` against the **Rover** (not Beast):
 ```yaml
-wheel_base_m: 0.295        # measure track width (centre-to-centre of wheels)
-wheel_radius_m: 0.0525     # measure actual wheel radius
-ticks_per_rev: 1560        # verify with a calibration spin (see below)
+wheel_radius_m: 0.04       # confirmed: Rover has 80 mm wheels
+max_speed_mps: 1.3         # confirmed Rover spec
+wheel_base_m: <measured>   # measure left-right wheel centre-to-centre
+ticks_per_rev: <calibrated>
 ```
 
 **Encoder calibration:**
 ```bash
-# Mark a starting point, drive exactly 1m forward, check /wheel/odom
+# Set wheel_radius_m first. Then drive a tape-measured straight line
+# (e.g. 2 m) at low speed and check /wheel/odom:
 ros2 topic echo /wheel/odom --once
-# pose.pose.position.x should read ~1.0
-# Adjust ticks_per_rev if off.
+# Scale ticks_per_rev by (measured_distance / reported_distance).
 ```
 
-#### C. Verify phone IMU mounting
+**Track-width calibration:** rotate the robot exactly 360° in place and
+compare odom yaw; adjust `wheel_base_m` until they match. Skid-steer scrub
+makes the effective track width differ from the geometric one — calibrate
+empirically.
 
-Adjust `ugv_localization/launch/static_tf.launch.py` `imu_link` transform:
+#### C. Verify IMU mounting and calibration
+
+The IMU is the ESP32's ICM-20948. Adjust the `base_link → imu_link`
+transform in `ugv_localization/launch/static_tf.launch.py` to where the
+ESP32 board physically sits.
+
 ```bash
-ros2 launch ugv_localization static_tf.launch.py
-# Rotate robot 90° clockwise (from above) → yaw in /odometry/local should decrease ~1.57 rad
+# Gyro bias — robot perfectly still and level:
+ros2 topic echo /imu/data --field angular_velocity.z
+# Must average ≈ 0. A nonzero average is uncorrected gyro bias;
+# set imu_gyro_bias_z in motor_params.yaml. See PYPROGRESS.md § 4.
+
+# Gyro scale — rotate the robot 90° by hand:
+# the integral of angular_velocity.z should be ≈ 1.57 rad.
 ```
 
 #### D. GPS velocity frame walk test (CRITICAL)
@@ -182,7 +210,9 @@ ros2 launch ugv_bringup robot_dev.launch.py
 
 - [ ] RPLIDAR C1 visible: `ros2 topic hz /scan` → ~8 Hz
 - [ ] Laser filter working: `ros2 topic hz /scan_filtered` → same rate, fewer points
-- [ ] Phone bridge connected: `ros2 topic hz /imu/data` → 40-60 Hz
+- [ ] IMU publishing: `ros2 topic hz /imu/data` (rate set by ESP32 firmware — confirm actual value)
+- [ ] IMU bias OK: `ros2 topic echo /imu/data --field angular_velocity.z` ≈ 0 at rest
+- [ ] Wheel odom publishing: `ros2 topic hz /wheel/odom`
 - [ ] GPS publishing: `ros2 topic hz /gps/fix` → ~1 Hz
 - [ ] Motor driver serial connected (check `/diagnostics`)
 - [ ] Battery monitor publishing: `ros2 topic echo /battery_state --once`
@@ -191,7 +221,9 @@ ros2 launch ugv_bringup robot_dev.launch.py
 
 ```bash
 ros2 run tf2_tools view_frames
-# Should show: map → odom → base_link → {laser, imu_link, gps}
+# Should show: map → odom → base_link → {<laser_frame>, imu_link, gps}
+# Confirm the real lidar frame name with: ros2 run tf2_ros tf2_echo --frames
+# (it is NOT necessarily "laser")
 ```
 
 ### Stage 3: EKF convergence
@@ -213,9 +245,8 @@ ros2 topic echo /odometry/global
 ### Stage 5: Teleop
 
 ```bash
-# Install teleop
 sudo apt install ros-jazzy-teleop-twist-keyboard
-# Run (note: publishes to /cmd_vel/teleop — watchdog muxes to /cmd_vel)
+# Publishes to /cmd_vel/teleop — watchdog muxes to /cmd_vel
 ros2 run teleop_twist_keyboard teleop_twist_keyboard \
   --ros-args --remap cmd_vel:=/cmd_vel/teleop
 ```
@@ -223,11 +254,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 ### Stage 6: Waypoint mission
 
 ```bash
-# Send example mission
 ros2 run ugv_navigation waypoint_converter \
   --ros-args -p mission_file:=$(ros2 pkg prefix ugv_navigation)/share/ugv_navigation/missions/example_mission.yaml
-
-# Monitor
 ros2 topic echo /delivery_status
 ```
 
@@ -236,44 +264,57 @@ ros2 topic echo /delivery_status
 ## Troubleshooting
 
 ### "TF extrapolation into future" errors
-- Set `use_phone_timestamps: false` in `bridge_params.yaml` (default)
-- Verify `use_sim_time: false` in all Nav2 params
+- Most common with remote RViz: **clock skew** between the Pi and the
+  visualization VM. Sync both with `chrony`/NTP; confirm with `timedatectl`.
+- Verify `use_sim_time: false` in all Nav2 params.
+- Raise `transform_tolerance` to 0.3 in Nav2 configs (0.1 is too tight on a
+  Pi 4B with a remote viewer).
 
 ### Robot drives in circles / heading wrong
-1. Wrong magnetic declination — recompute and update `ekf.yaml`
-2. Phone IMU yaw sign flip — the bridge negates yaw; check `euler_deg_to_quaternion`
-3. Wrong `imu_link` static transform — verify mounting and re-measure transform angles
+1. **Gyro bias** not subtracted — check `angular_velocity.z` ≈ 0 at rest;
+   set `imu_gyro_bias_z` in `motor_params.yaml`.
+2. **Gyro scale** wrong — run the 90° rotation test (integral ≈ 1.57 rad).
+3. Wrong magnetic declination — recompute and update `ekf.yaml`.
+4. Wrong `imu_link` static transform — verify the ESP32 board mounting.
+5. On skid-steer, ensure the EKF is not fusing wheel-odom yaw — gyro owns
+   heading rate. See `PYPROGRESS.md § 5`.
+
+### Scans smeared / doubled in RViz
+- Set the LaserScan display Decay Time to 0.
+- Usually accumulating heading error — see the gyro bias/scale items above.
+- Check Fixed Frame: `odom` when no GPS, `map` with GPS.
 
 ### Position jumps on GPS update
 - GPS covariance too optimistic → inflate GPS position variance in global EKF
   ```yaml
   odom1_pose_rejection_threshold: 5.0  # reject outliers > 5 m
   ```
-- Increase `navsat_transform_node.delay` to 5–8s
+- Increase `navsat_transform_node.delay` to 5–8s.
 
 ### Phantom obstacles in sunlight
 - Tighten range filter: `upper_threshold: 6.0`
-- Add a physical sunshade hood over the RPLIDAR
-
-### Phone bridge "DroppedQuality" messages
-- Phone IMU quality reporting may be conservative
-- Lower `min_data_quality: 0.1` if the data looks good visually
+- Add a physical sunshade hood over the RPLIDAR.
 
 ### Motors don't move
-1. Check serial connection: `ls -la /dev/rplidar /dev/esp32`
+1. Check serial connection: `ls -la /dev/rplidar` and the ESP32 UART device.
 2. Check udev rules applied: `sudo udevadm trigger`
 3. Check e-stop status: `ros2 topic echo /e_stop --once`
 4. Test in sim_mode first: `ros2 launch ugv_base ugv_base.launch.py sim_mode:=true`
+5. ESP32 silent on an assembled UGV usually means the driver board is not on
+   main battery power (the ESP32 is not powered by the Pi).
 
 ### Nav2 won't start / lifecycle error
-- EKF must publish `/odometry/local` and TF `odom→base_link` before Nav2 starts
-- The 8-second delay in `robot.launch.py` handles this; increase if needed
+- EKF must publish `/odometry/local` and TF `odom→base_link` before Nav2 starts.
+- The startup delay in `robot.launch.py` handles this; increase if needed.
 - Check: `ros2 lifecycle get /bt_navigator`
 
 ### WiFi dropout causes robot to stop
-- Expected behaviour (watchdog stops on sensor timeout)
-- Increase `cmd_vel_timeout_s` in `motor_params.yaml` to 1.5-2.0s for looser recovery
-- Use Pi as hotspot (`ugv_hotspot.service`) for shorter WiFi path
+- Expected behaviour (watchdog stops on sensor timeout). Note: WiFi now
+  carries GPS only — an IMU/odometry-driven local EKF still runs through a
+  dropout, but GPS corrections pause.
+- Increase `cmd_vel_timeout_s` in `motor_params.yaml` to 1.5–2.0s for looser
+  recovery.
+- Use Pi as hotspot (`ugv_hotspot.service`) for a shorter WiFi path.
 
 ### Out of memory during build
 ```bash
@@ -285,10 +326,7 @@ Or increase swap to 4GB in `/etc/dphys-swapfile`.
 
 ## Example Waypoint Mission
 
-Edit coordinates for your location, then:
-
 ```bash
-# Create a mission file
 cat > /tmp/my_mission.yaml << 'EOF'
 mission:
   id: "test_001"
@@ -304,14 +342,12 @@ mission:
       alt: 234.0
 EOF
 
-# Send to robot
 ros2 run ugv_navigation waypoint_converter \
   --ros-args -p mission_file:=/tmp/my_mission.yaml
 
-# Watch progress
 ros2 topic echo /delivery_status
 
-# Emergency stop if needed
+# Emergency stop
 ros2 service call /emergency_stop ugv_interfaces/srv/EmergencyStop \
   "{stop: true, reason: 'manual stop'}"
 
@@ -331,7 +367,7 @@ ros2 service call /emergency_stop ugv_interfaces/srv/EmergencyStop \
 | 3D LiDAR (Livox MID-360) | Full 3D scene understanding | High |
 | LTE modem (Sixfab) | Outdoor remote operations without hotspot | Low |
 | Hardware E-stop relay | Safety compliance for pedestrian areas | Low |
-| Additional wheel encoders | Better odometry on slippery surfaces | Low |
+| Encoders on all six wheels | Better odometry (only four are encoded) | Low |
 | Jetson Orin Nano | Replace Pi for faster Nav2 + depth processing | Medium |
 | SLAM cartographer | Indoor capability | Medium |
 
@@ -342,30 +378,51 @@ ros2 service call /emergency_stop ugv_interfaces/srv/EmergencyStop \
 ### Why dual EKF?
 
 The local EKF (odom frame) gives Nav2's local planner a smooth, continuous
-odometry stream. GPS jumps would cause lurching if fed directly to the local planner.
-The global EKF (map frame) absorbs GPS updates and provides the slowly-corrected
-global pose Nav2's global planner needs. This is the standard outdoor nav2 pattern.
+odometry stream. GPS jumps would cause lurching if fed directly to the local
+planner. The global EKF (map frame) absorbs GPS updates and provides the
+slowly-corrected global pose Nav2's global planner needs. This is the
+standard outdoor Nav2 pattern.
 
 ### Why rolling global costmap?
 
-There is no pre-built map. The global costmap grows around the robot's current
-position, updated by lidar returns. The robot relies on GPS for global positioning,
-not the costmap.
+There is no pre-built map. The global costmap grows around the robot's
+current position, updated by lidar returns. The robot relies on GPS for
+global positioning, not the costmap.
 
 ### Why MPPI controller?
 
-MPPI (Model Predictive Path Integral) generates smooth trajectories suitable for
-differential-drive robots on sidewalks. It handles the large goal tolerance (2m GPS
-accuracy) better than DWB. Batch size reduced from 2000→1000 for Pi 4B CPU budget.
+MPPI (Model Predictive Path Integral) generates smooth trajectories suitable
+for skid-steer robots on sidewalks. It handles the large goal tolerance (2 m
+GPS accuracy) better than DWB. Batch size reduced from 2000→1000 for Pi 4B
+CPU budget.
+
+### Skid-steer odometry
+
+The Rover is a 6-wheel skid-steer platform: it turns by driving the left and
+right wheel banks at different speeds, scrubbing the wheels sideways on every
+turn. Wheel-odometry *yaw* is therefore unreliable — heading should come from
+the gyro, not the wheels. Only four of the six wheels carry encoders. See
+`PYPROGRESS.md § 4–5`.
+
+### IMU — ESP32 / ICM-20948
+
+The IMU is on the ESP32 driver board and sends **raw** accel/gyro counts over
+UART. `motor_driver` converts counts to SI, removes gravity, subtracts gyro
+bias, and publishes `/imu/data`. The ICM-20948 magnetometer is unused
+(magnetic interference from the motors), so there is no absolute yaw — the
+EKF integrates gyro rate for heading. Gyro bias and scale must both be
+calibrated; see the deployment calibration steps and `PYPROGRESS.md § 4`.
 
 ### Why CycloneDDS?
 
 FastDDS (default) is significantly heavier on ARM (Pi 4B). CycloneDDS reduces
-CPU usage by ~20-30% at idle, which matters on a 4-core 1.8 GHz Pi.
+CPU usage by ~20–30% at idle, which matters on a 4-core 1.8 GHz Pi.
 
-### Phone IMU trust level
+---
 
-Phone 9-axis sensor fusion (typically Qualcomm/MediaTek fusion stack) is excellent
-for roll and pitch (~0.01 rad² covariance) but yaw is magnetometer-dependent.
-If the phone is near motors or power cables, magnetic interference will corrupt yaw.
-Mount the phone as far from current-carrying traces as possible.
+## Documentation
+
+- `PYPROGRESS.md` — current-architecture project notes (source of truth):
+  hardware map, ESP32 protocol, driver, dual EKF, Nav2, failure patterns.
+- `PYNAVIGATION.md` — outdoor navigation guide; split into still-valid,
+  needs-editing, and obsolete (phone-IMU) parts.

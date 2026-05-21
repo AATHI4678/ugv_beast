@@ -86,7 +86,7 @@ class MotorDriver(Node):
         self.declare_parameter("wheel_base_m", 0.295)
         self.declare_parameter("wheel_radius_m", 0.0525)
         self.declare_parameter("ticks_per_rev", 1560)
-        self.declare_parameter("max_speed_mps", 0.35)
+        self.declare_parameter("max_speed_mps", 1.3)
         self.declare_parameter("cmd_vel_timeout_s", 0.5)
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("odom_frame", "odom")

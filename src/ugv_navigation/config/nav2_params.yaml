@@ -37,7 +37,7 @@ bt_navigator:
 controller_server:
     ros__parameters:
         use_sim_time: false
-        controller_frequency: 10.0 # 10 Hz sufficient for 0.35 m/s outdoors
+        controller_frequency: 5.0 # 10 Hz sufficient for 0.35 m/s outdoors
         min_x_velocity_threshold: 0.001
         min_y_velocity_threshold: 0.5 # diff-drive: no lateral motion
         min_theta_velocity_threshold: 0.001
@@ -60,9 +60,9 @@ controller_server:
 
         FollowPath:
             plugin: "nav2_mppi_controller::MPPIController"
-            time_steps: 56
-            model_dt: 0.1
-            batch_size: 1000 # reduced from 2000 for Pi 4B CPU budget
+            time_steps: 40
+            model_dt: 0.2
+            batch_size: 500 # reduced from 2000 for Pi 4B CPU budget
             ax_max: 0.5 # m/s²; gentle acceleration for stability
             ax_min: -0.5
             ay_max: 0.5
@@ -70,7 +70,7 @@ controller_server:
             vx_std: 0.2
             vy_std: 0.0 # diff-drive: no lateral velocity
             wz_std: 0.4
-            vx_max: 0.15 # slightly below hardware max for safety margin
+            vx_max: 0.65 # slightly below hardware max for safety margin
             vx_min: -0.10 # allow small reverse for recovery
             vy_max: 0.0
             wz_max: 1.0
@@ -154,9 +154,13 @@ local_costmap:
             global_frame: odom
             robot_base_frame: base_link
             rolling_window: true
-            width: 8
-            height: 8
-            resolution: 0.1 # 10 cm per cell; trade-off: detail vs CPU
+            # width: 8
+            # height: 8
+            # resolution: 0.1 # 10 cm per cell; trade-off: detail vs CPU
+            # New costmap as of 21/05/2026
+            width: 6
+            height: 6
+            resolution: 0.1
             # robot_radius: 0.30 # UGV Rover approximate inscribed radius
             # Explicit footprint alternative (more accurate):
             footprint: "[[0.15, 0.15], [0.15, -0.15], [-0.15, -0.15], [-0.15, 0.15]]"
@@ -177,8 +181,8 @@ local_costmap:
                     obstacle_min_range: 0.0
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 2.0
-                inflation_radius: 0.85 # generous: absorbs GPS jitter + robot radius
+                inflation_radius: 0.40
+                cost_scaling_factor: 3.0 # generous: absorbs GPS jitter + robot radius
 
             always_send_full_costmap: true
 
@@ -214,8 +218,8 @@ global_costmap:
                     obstacle_min_range: 0.0
             inflation_layer:
                 plugin: "nav2_costmap_2d::InflationLayer"
-                cost_scaling_factor: 2.5
-                inflation_radius: 0.80 # extra generous for global planner
+                inflation_radius: 0.50
+                cost_scaling_factor: 3.0
 
             always_send_full_costmap: false
 
@@ -300,7 +304,7 @@ velocity_smoother:
         smoothing_frequency: 20.0
         scale_velocities: false
         feedback: "OPEN_LOOP"
-        max_velocity: [0.15, 0.0, 1.0]
+        max_velocity: [0.45, 0.0, 1.0]
         min_velocity: [-0.10, 0.0, -1.0]
         max_accel: [0.5, 0.0, 1.5]
         max_decel: [-0.5, 0.0, -1.5]
@@ -326,16 +330,18 @@ collision_monitor:
             type: "polygon"
             points: "[[0.35, 0.30], [0.35, -0.30], [-0.35, -0.30], [-0.35, 0.30]]"
             action_type: "stop"
-            min_points: 4
-            visualize: false
+            min_points: 8
+            # visualize: false
+            visualize: true
             polygon_pub_topic: "polygon_stop"
         PolygonSlow:
             type: "polygon"
-            points: "[[0.7, 0.5], [0.7, -0.5], [-0.5, -0.5], [-0.5, 0.5]]"
+            points: "[[0.55, 0.40], [0.55, -0.40], [-0.25, -0.40], [-0.25, 0.40]]"
             action_type: "slowdown"
             slowdown_ratio: 0.5
-            min_points: 4
-            visualize: false
+            min_points: 12
+            # visualize: false
+            visualize: true
             polygon_pub_topic: "polygon_slow"
         observation_sources: ["scan"]
         scan:

@@ -16,23 +16,11 @@ scan_filter_chain:
                 upper_threshold: 8.0
                 lower_replacement_value: -.inf
                 upper_replacement_value: .inf
-
-        # 2. Shadow filter — remove veiling/split-pixel points at object edges
         filter2:
-            name: shadows
-            type: laser_filters/ScanShadowsFilter
-            params:
-                min_angle: 10.0
-                max_angle: 170.0
-                neighbors: 1
-                window: 1
-
-        # 3. Speckle filter — remove isolated single-point returns
-        filter3:
             name: speckle
             type: laser_filters/LaserScanSpeckleFilter
             params:
                 filter_type: 0
                 max_range: 8.0
-                max_range_difference: 0.5
+                max_range_difference: 0.7
                 filter_window: 2

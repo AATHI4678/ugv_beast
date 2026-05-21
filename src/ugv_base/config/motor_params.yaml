@@ -7,6 +7,7 @@
 
 motor_driver:
     ros__parameters:
+        invert_drive: false
         serial_port: /dev/ttyAMA0 # udev symlink (see setup_pi.sh); fallback /dev/ttyAMA0
         baud_rate: 115200 # confirmed: Waveshare UGV Rover firmware uses 115200
 

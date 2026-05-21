@@ -1,0 +1,17 @@
+vision_server:
+  ros__parameters:
+    camera_device:    "/dev/video0"   # Realtek 0bda:5842 USB camera
+    flask_port:       5000
+    image_width:      640
+    image_height:     480
+    image_fps:        15
+    jpeg_quality:     70
+
+    # Motor speeds passed to teleop_watchdog → motor_driver
+    # Tune these to match your rover's response
+    drive_speed:      0.40    # m/s  forward / backward
+    turn_speed:       0.80    # rad/s  left / right
+
+    # Seconds after last non-stop command before teleop override is released
+    # and Nav2 resumes control
+    override_timeout: 1.5

@@ -35,6 +35,24 @@ def generate_launch_description():
         remappings=[],
     )
 
+    camera_node = Node(
+        package="usb_cam",
+        executable="usb_cam_node_exe",
+        name="camera",
+        output="screen",
+        parameters=[
+            {
+                "video_device": "/dev/camera_ugv",
+                "pixel_format": "mjpeg2rgb",
+                "image_width": 640,
+                "image_height": 480,
+                "framerate": 15.0,
+                "frame_id": "camera_link",
+                "camera_name": "ugv_camera",
+            }
+        ],
+    )
+
     battery_node = Node(
         package="ugv_base",
         executable="battery_monitor",
@@ -51,4 +69,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    return LaunchDescription([sim_arg, motor_node, battery_node, teleop_node])
+    return LaunchDescription(
+        [sim_arg, motor_node, battery_node, teleop_node, camera_node]
+    )

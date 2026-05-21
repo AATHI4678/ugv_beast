@@ -3,10 +3,11 @@ Master launch file — brings up the complete UGV Rover delivery robot stack.
 
 Launch order (dependencies):
   1. ugv_base          — motor driver, battery monitor, teleop watchdog
-  2. phone_sensor_bridge — WebSocket client (phone IMU + GPS)
-  3. ugv_perception    — RPLIDAR C1 driver + laser filter chain
-  4. ugv_localization  — static TF, dual EKF, navsat_transform, watchdog
-  5. ugv_navigation    — Nav2 + mission manager
+  2. ugv_vision        — USB camera stream + HTTP/vision cmd_vel bridge
+  3. phone_sensor_bridge — WebSocket client (phone GPS)
+  4. ugv_perception    — RPLIDAR C1 driver + laser filter chain
+  5. ugv_localization  — static TF, dual EKF, navsat_transform, watchdog
+  6. ugv_navigation    — Nav2 + mission manager
 
 Arguments:
   phone_ip         Phone app IP address (default: 192.168.4.2 for Pi hotspot)
@@ -14,9 +15,10 @@ Arguments:
   home_longitude   Home GPS longitude
   sim_mode         Set true for desktop testing without hardware
   serial_port      RPLIDAR serial port (default: /dev/rplidar udev symlink)
+  camera_device    USB camera device (default: /dev/video0)
 
 Usage:
-  ros2 launch ugv_bringup robot.launch.py phone_ip:=192.168.4.2 \\
+  ros2 launch ugv_bringup robot.launch.py phone_ip:=192.168.4.2 \
     home_latitude:=44.305488 home_longitude:=-79.574232
 """
 
@@ -54,19 +56,29 @@ def launch(package, filename, **kwargs):
 
 
 def generate_launch_description():
+
     # ── Arguments ──────────────────────────────────────────────────────
     args = [
-        DeclareLaunchArgument("phone_ip", default_value="192.168.4.2"),
-        DeclareLaunchArgument("home_latitude", default_value="0.0"),
-        DeclareLaunchArgument("home_longitude", default_value="0.0"),
-        DeclareLaunchArgument("sim_mode", default_value="false"),
-        DeclareLaunchArgument("serial_port", default_value="/dev/rplidar"),
-        DeclareLaunchArgument("use_sim_time", default_value="false"),
+        DeclareLaunchArgument("phone_ip",        default_value="192.168.4.2"),
+        DeclareLaunchArgument("home_latitude",   default_value="0.0"),
+        DeclareLaunchArgument("home_longitude",  default_value="0.0"),
+        DeclareLaunchArgument("sim_mode",        default_value="false"),
+        DeclareLaunchArgument("serial_port",     default_value="/dev/rplidar"),
+        DeclareLaunchArgument("use_sim_time",    default_value="false"),
+        DeclareLaunchArgument("camera_device",   default_value="/dev/video0"),
     ]
 
-    # ── Stage 1: Hardware drivers ───────────────────────────────────────
+    # ── Stage 1: Hardware drivers (start immediately) ───────────────────
     base = launch(
-        "ugv_base", "ugv_base.launch.py", sim_mode=LaunchConfiguration("sim_mode")
+        "ugv_base", "ugv_base.launch.py",
+        sim_mode=LaunchConfiguration("sim_mode"),
+    )
+
+    # Vision server: camera stream + HTTP→/cmd_vel/teleop bridge
+    # Starts at the same time as base so the camera is ready early.
+    vision = launch(
+        "ugv_vision", "vision.launch.py",
+        camera_device=LaunchConfiguration("camera_device"),
     )
 
     phone = launch(
@@ -81,13 +93,13 @@ def generate_launch_description():
         serial_port=LaunchConfiguration("serial_port"),
     )
 
-    # ── Stage 2: Localization (delay 3s to let hardware come up) ───────
+    # ── Stage 2: Localization (delay 3 s — let hardware come up) ───────
     localization = TimerAction(
         period=3.0,
         actions=[launch("ugv_localization", "localization.launch.py")],
     )
 
-    # ── Stage 3: Navigation (delay 8s to let EKF converge) ─────────────
+    # ── Stage 3: Navigation (delay 8 s — let EKF converge) ─────────────
     navigation = TimerAction(
         period=8.0,
         actions=[
@@ -102,4 +114,6 @@ def generate_launch_description():
         ],
     )
 
-    return LaunchDescription(args + [base, phone, perception, localization, navigation])
+    return LaunchDescription(
+        args + [base, vision, phone, perception, localization, navigation]
+    )

@@ -59,6 +59,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Bool, Float32
+
 from ugv_interfaces.msg import MotorStatus
 
 try:
@@ -514,18 +515,27 @@ class MotorDriver(Node):
                 return
             self.last_cmd_time = time.time()
             vx = max(-self.max_speed, min(self.max_speed, float(msg.linear.x)))
-            vyaw = float(msg.angular.z)
+            vyaw = -float(msg.angular.z)
             if self.sim_mode:
                 self._sim_vx = vx
                 self._sim_vyaw = vyaw
                 return
+
+            # left = vx - (vyaw * self.wheel_base / 2.0)
+            # right = vx + (vyaw * self.wheel_base / 2.0)
             left = vx - (vyaw * self.wheel_base / 2.0)
             right = vx + (vyaw * self.wheel_base / 2.0)
+            # left = -left
+            # right = -right
             m = max(abs(left), abs(right))
             if m > self.max_speed:
                 left *= self.max_speed / m
                 right *= self.max_speed / m
         # Waveshare T:1 drive command; normalise m/s to [-1, 1].
+        # Switching these two
+        # self.get_logger().info(
+        #     f"vx={vx:.2f} vyaw={vyaw:.2f} L={left:.3f} R={right:.3f}"
+        # )
         self._send_serial(
             {
                 "T": 1,

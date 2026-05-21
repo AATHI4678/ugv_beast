@@ -49,7 +49,7 @@ def generate_launch_description():
                 "serial_port": LaunchConfiguration("serial_port"),
                 "serial_baudrate": 460800,  # C1 uses 460800 baud
                 "frame_id": "laser",
-                "inverted": False,
+                "inverted": True,
                 "angle_compensate": True,
                 "scan_mode": "Standard",
             }

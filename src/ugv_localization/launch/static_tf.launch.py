@@ -1,5 +1,5 @@
 """
-Static TF publishers for UGV Beast sensor mounting.
+Static TF publishers for UGV Rover sensor mounting.
 
 TF tree:
   base_link
@@ -8,10 +8,10 @@ TF tree:
     └── gps         (phone GPS antenna, mounted on robot)
 
 IMU MOUNTING NOTES:
-  The UGV Beast ESP32 board sits near the centre of the chassis.
+  The UGV Rover ESP32 board sits near the centre of the chassis.
   The IMU chip (MPU6050 or similar) is soldered to the ESP32 carrier board.
 
-  Typical UGV Beast orientation when board is flat:
+  Typical UGV Rover orientation when board is flat:
     IMU +X  →  robot forward  (+X in REP-103)
     IMU +Y  →  robot left     (+Y in REP-103)
     IMU +Z  →  robot up       (+Z in REP-103)
@@ -43,45 +43,65 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    return LaunchDescription([
-
-        # ── RPLIDAR C1 ──────────────────────────────────────────────────────
-        # Front-centre of chassis, 0.20 m forward, 0.15 m above base_link.
-        # Laser scan plane is horizontal; frame already REP-103 compliant.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='tf_base_to_laser',
-            arguments=['0.20', '0.0', '0.15',   # x y z  (metres)
-                       '0', '0', '0',            # yaw pitch roll  (radians)
-                       'base_link', 'laser'],
-        ),
-
-        # ── Robot IMU (ESP32 onboard) ────────────────────────────────────────
-        # The ESP32 carrier board sits roughly at the centre of the chassis,
-        # approximately 0.05 m above the base plate.
-        #
-        # Default: axes already aligned (identity rotation).
-        # If your board is rotated, change the yaw/pitch/roll below.
-        # Common case — board rotated 90° CW from above: yaw = -1.5708
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='tf_base_to_imu',
-            arguments=['0.0', '0.0', '0.05',    # x y z: centre, 5 cm above base
-                       '0', '0', '0',            # yaw pitch roll: identity (adjust if needed)
-                       'base_link', 'imu_link'],
-        ),
-
-        # ── Phone GPS ────────────────────────────────────────────────────────
-        # Phone used only for GPS now (no IMU from phone).
-        # Mount the phone where it has clear sky view; update offsets to match.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='tf_base_to_gps',
-            arguments=['0.0', '0.0', '0.50',    # x y z: top of robot ~50 cm above base
-                       '0', '0', '0',
-                       'base_link', 'gps'],
-        ),
-    ])
+    return LaunchDescription(
+        [
+            # ── RPLIDAR C1 ──────────────────────────────────────────────────────
+            # Front-centre of chassis, 0.20 m forward, 0.15 m above base_link.
+            # Laser scan plane is horizontal; frame already REP-103 compliant.
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="tf_base_to_laser",
+                arguments=[
+                    "0.20",
+                    "0.0",
+                    "0.15",  # x y z  (metres)
+                    "0",
+                    "0",
+                    "0",  # yaw pitch roll  (radians)
+                    "base_link",
+                    "laser",
+                ],
+            ),
+            # ── Robot IMU (ESP32 onboard) ────────────────────────────────────────
+            # The ESP32 carrier board sits roughly at the centre of the chassis,
+            # approximately 0.05 m above the base plate.
+            #
+            # Default: axes already aligned (identity rotation).
+            # If your board is rotated, change the yaw/pitch/roll below.
+            # Common case — board rotated 90° CW from above: yaw = -1.5708
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="tf_base_to_imu",
+                arguments=[
+                    "0.0",
+                    "0.0",
+                    "0.05",  # x y z: centre, 5 cm above base
+                    "0",
+                    "0",
+                    "0",  # yaw pitch roll: identity (adjust if needed)
+                    "base_link",
+                    "imu_link",
+                ],
+            ),
+            # ── Phone GPS ────────────────────────────────────────────────────────
+            # Phone used only for GPS now (no IMU from phone).
+            # Mount the phone where it has clear sky view; update offsets to match.
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="tf_base_to_gps",
+                arguments=[
+                    "0.0",
+                    "0.0",
+                    "0.50",  # x y z: top of robot ~50 cm above base
+                    "0",
+                    "0",
+                    "0",
+                    "base_link",
+                    "gps",
+                ],
+            ),
+        ]
+    )

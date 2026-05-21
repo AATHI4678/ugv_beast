@@ -3,7 +3,7 @@
 <package format="3">
   <name>ugv_base</name>
   <version>1.0.0</version>
-  <description>Hardware abstraction layer for WaveShare UGV Beast: motor driver, odometry, battery monitor.</description>
+  <description>Hardware abstraction layer for WaveShare UGV Rover: motor driver, odometry, battery monitor.</description>
   <maintainer email="robot@delivery.local">UGV Team</maintainer>
   <license>Apache-2.0</license>
 

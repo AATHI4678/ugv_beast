@@ -89,7 +89,7 @@ Visualization Manager:
       Update Interval: 0
       Value: true
 
-    # Placeholder — add robot URDF to ugv_base/urdf/ugv_beast.urdf.xacro
+    # Placeholder — add robot URDF to ugv_base/urdf/ugv_Rover.urdf.xacro
     # and set robot_description parameter to enable 3D model display.
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel

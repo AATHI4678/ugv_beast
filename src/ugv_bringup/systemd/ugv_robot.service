@@ -1,5 +1,5 @@
 [Unit]
-Description=UGV Beast Delivery Robot ROS 2 Stack
+Description=UGV Rover Delivery Robot ROS 2 Stack
 After=network-online.target
 Wants=network-online.target
 

@@ -1,6 +1,6 @@
 # =============================================================================
-# UGV Beast hardware parameters — verified against Waveshare documentation
-# Sources: https://www.waveshare.com/wiki/UGV_Beast_PI_ROS2
+# UGV Rover hardware parameters — verified against Waveshare documentation
+# Sources: https://www.waveshare.com/wiki/UGV_Rover_PI_ROS2
 #          https://github.com/waveshareteam/ugv_base_ros
 #          https://www.waveshare.com/wiki/UPS_Module_3S
 # =============================================================================
@@ -8,7 +8,7 @@
 motor_driver:
     ros__parameters:
         serial_port: /dev/ttyAMA0 # udev symlink (see setup_pi.sh); fallback /dev/ttyAMA0
-        baud_rate: 115200 # confirmed: Waveshare UGV Beast firmware uses 115200
+        baud_rate: 115200 # confirmed: Waveshare UGV Rover firmware uses 115200
 
         # ── Wheel geometry ────────────────────────────────────────────────────
         # wheel_radius confirmed: 0.05 m (100 mm diameter wheels)
@@ -16,11 +16,11 @@ motor_driver:
         #   Note: some docs reference 0.30 m; measure your unit with a ruler.
         #   The 0.25 m value is from the Waveshare wiki dimensional drawing.
         wheel_base_m: 0.25
-        wheel_radius_m: 0.05
+        wheel_radius_m: 0.04
 
         # ── Encoder ticks per revolution ──────────────────────────────────────
         # NOT published in Waveshare documentation. Must be calibrated.
-        # UGV Beast uses Hall-effect encoders on geared DC motors.
+        # UGV Rover uses Hall-effect encoders on geared DC motors.
         # Typical Waveshare gearmotors (DCGM3865 family): 11 PPR × 4 (quadrature)
         # × gear_ratio. Gear ratio is not published.
         #
@@ -34,7 +34,7 @@ motor_driver:
         # with 11 PPR × 4 (quadrature) = 44 × 35.5 ≈ 1562, but verify.
         ticks_per_rev: 1560
 
-        max_speed_mps: 0.35 # confirmed: UGV Beast hardware limit ~0.35 m/s
+        max_speed_mps: 1.3 # confirmed: UGV Rover hardware limit ~0.35 m/s
         cmd_vel_timeout_s:
             0.5 # ESP32 firmware has a 3-second internal timeout;
             # our 0.5 s is intentionally tighter for safety
@@ -47,7 +47,7 @@ motor_driver:
         # IMU chip: ICM-20948 (9-axis: accel + gyro + magnetometer)
         # Confirmed via Waveshare firmware using Adafruit_ICM20948 library.
         # The ICM-20948 includes a Digital Motion Processor (DMP) capable of
-        # outputting quaternions. Whether the UGV Beast firmware enables DMP
+        # outputting quaternions. Whether the UGV Rover firmware enables DMP
         # depends on the firmware version — check your ESP32 firmware source.
         #
         # imu_has_orientation: true  if firmware sends qw/qx/qy/qz (DMP enabled)
@@ -60,8 +60,9 @@ motor_driver:
         #   Gyro noise density:  15 mdps/√Hz → at 100 Hz: 0.015 × π/180 × √100 ≈ 0.0026 rad/s
         # Variance = noise² (conservative 2× safety factor applied):
         imu_accel_variance: 0.001 # (m/s²)²  — ICM-20948 is significantly better than MPU6050
-        imu_gyro_variance: 0.00002 # (rad/s)²
+        imu_gyro_variance: 0.01 # (rad/s)²
         imu_orientation_variance: 0.005 # (rad)² — only used when imu_has_orientation: true
+        imu_gyro_bias_z: 0.00208 #Corrected the bias.
 
 battery_monitor:
     ros__parameters:

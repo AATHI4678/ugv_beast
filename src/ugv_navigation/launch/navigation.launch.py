@@ -34,7 +34,7 @@ def generate_launch_description():
                 executable="controller_server",
                 output="screen",
                 parameters=[nav2_params],
-                remappings=[("cmd_vel", "cmd_vel_smoothed")],
+                remappings=[("cmd_vel", "cmd_vel_nav")],
             ),
             Node(
                 package="nav2_smoother",
@@ -71,10 +71,7 @@ def generate_launch_description():
                 executable="velocity_smoother",
                 output="screen",
                 parameters=[nav2_params],
-                remappings=[
-                    ("cmd_vel", "cmd_vel_smoothed"),
-                    ("cmd_vel_smoothed", "/cmd_vel/nav2"),
-                ],
+                remappings=[("cmd_vel", "cmd_vel_nav")],
             ),
             Node(
                 package="nav2_collision_monitor",

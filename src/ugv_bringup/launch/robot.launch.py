@@ -1,5 +1,5 @@
 """
-Master launch file — brings up the complete UGV Beast delivery robot stack.
+Master launch file — brings up the complete UGV Rover delivery robot stack.
 
 Launch order (dependencies):
   1. ugv_base          — motor driver, battery monitor, teleop watchdog

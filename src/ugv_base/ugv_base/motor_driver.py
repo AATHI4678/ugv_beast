@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Motor driver node for WaveShare UGV Beast.
+Motor driver node for WaveShare UGV Rover.
 
 Pi (high-level) + ESP32 (low-level PID). Communication is UART JSON @ 115200.
 
@@ -75,7 +75,7 @@ FEEDBACK_T = 1001
 
 
 class MotorDriver(Node):
-    """Differential-drive motor driver + IMU publisher for the WaveShare UGV Beast."""
+    """Differential-drive motor driver + IMU publisher for the WaveShare UGV Rover."""
 
     def __init__(self):
         super().__init__("motor_driver")
@@ -96,7 +96,7 @@ class MotorDriver(Node):
 
         # IMU framing
         self.declare_parameter("imu_frame_id", "imu_link")
-        # The real UGV Beast IMU (ICM-20948) sends raw accel+gyro only, no
+        # The real UGV Rover IMU (ICM-20948) sends raw accel+gyro only, no
         # quaternion. Leave False unless your firmware enables the DMP.
         self.declare_parameter("imu_has_orientation", False)
 
@@ -116,6 +116,9 @@ class MotorDriver(Node):
         self.declare_parameter("imu_gyro_invert_x", False)
         self.declare_parameter("imu_gyro_invert_y", False)
         self.declare_parameter("imu_gyro_invert_z", False)
+        self.declare_parameter("imu_gyro_bias_x", 0.0)
+        self.declare_parameter("imu_gyro_bias_y", 0.0)
+        self.declare_parameter("imu_gyro_bias_z", 0.0)
 
         # IMU covariances — tune after measuring your IMU's noise floor.
         self.declare_parameter("imu_accel_variance", 0.04)  # (m/s^2)^2
@@ -141,6 +144,10 @@ class MotorDriver(Node):
         self.accel_var = p("imu_accel_variance").value
         self.gyro_var = p("imu_gyro_variance").value
         self.orient_var = p("imu_orientation_variance").value
+
+        self._gx_bias = p("imu_gyro_bias_x").value
+        self._gy_bias = p("imu_gyro_bias_y").value
+        self._gz_bias = p("imu_gyro_bias_z").value
 
         self._drive_sign = -1.0 if p("invert_drive").value else 1.0
 
@@ -394,9 +401,13 @@ class MotorDriver(Node):
             0.0,
             self.gyro_var,
         ]
+        # BIAS FIX
+        imu.angular_velocity.x = float(msg["gx"]) * self._gx_s - self._gx_bias
+        imu.angular_velocity.y = float(msg["gy"]) * self._gy_s - self._gy_bias
+        imu.angular_velocity.z = float(msg["gz"]) * self._gz_s - self._gz_bias
 
         # Orientation: only if firmware DMP sends a quaternion. The stock
-        # UGV Beast firmware does not, so orientation_covariance[0] = -1
+        # UGV Rover firmware does not, so orientation_covariance[0] = -1
         # tells robot_localization to ignore orientation and integrate gyro.
         if self.imu_has_orientation and "qw" in msg:
             imu.orientation.w = float(msg["qw"])
@@ -558,7 +569,7 @@ class MotorDriver(Node):
 
         ms = DiagnosticStatus()
         ms.name = "motor_driver"
-        ms.hardware_id = "ugv_beast_esp32"
+        ms.hardware_id = "ugv_Rover_esp32"
         with self._lock:
             fault = self.fault_code != 0
             ok = self.serial_ok or self.sim_mode
@@ -580,7 +591,7 @@ class MotorDriver(Node):
 
         ims = DiagnosticStatus()
         ims.name = "robot_imu"
-        ims.hardware_id = "ugv_beast_imu"
+        ims.hardware_id = "ugv_Rover_imu"
         with self._lock:
             imu_age = (
                 time.time() - self._last_imu_time if self._last_imu_time > 0 else 9999.0

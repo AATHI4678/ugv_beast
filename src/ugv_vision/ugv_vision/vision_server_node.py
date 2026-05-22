@@ -44,7 +44,162 @@ from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Bool, String
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 
+from ugv_interfaces.msg import BatteryState
+from ugv_interfaces.srv import EmergencyStop
 from flask import Flask, Response, request, jsonify
+
+DASHBOARD_HTML = """<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: Arial, sans-serif; }
+    #video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+
+    #top-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; gap: 16px;
+      padding: 10px 16px; background: rgba(0,0,0,0.55);
+      z-index: 10; font-size: 12px; color: #ccc;
+    }
+    #camera-status { color: #2a2; }
+    #camera-status.error { color: #f44; }
+    #battery-status { margin-left: auto; }
+
+    #bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px; background: rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    #estop-btn {
+      width: 90px; height: 90px; border-radius: 50%;
+      border: 5px solid #333; font-size: 13px; font-weight: bold;
+      cursor: pointer; color: #fff;
+      background: #222e1a; border-color: #3a5a2a;
+      transition: all 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      user-select: none;
+    }
+    #estop-btn.engaged {
+      background: #7a1a1a; border-color: #cc2222;
+      animation: pulse 0.5s ease-in-out infinite alternate;
+    }
+    #estop-btn:active { transform: scale(0.95); }
+    @keyframes pulse {
+      from { box-shadow: 0 0 8px #c22; }
+      to   { box-shadow: 0 0 28px #f55; }
+    }
+
+    #estop-status {
+      position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+      font-size: 11px; font-weight: bold; letter-spacing: 0.08em;
+      color: #ccc; background: rgba(0,0,0,0.55); padding: 4px 12px;
+      border-radius: 4px; z-index: 10;
+    }
+    #estop-status.engaged { color: #f66; }
+
+    #service-status {
+      position: fixed; bottom: 110px; right: 20px;
+      font-size: 10px; color: #888; background: rgba(0,0,0,0.55);
+      padding: 4px 8px; border-radius: 4px; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <img id="video" src="" />
+
+  <div id="top-bar">
+    <span id="camera-status">CAM: --</span>
+    <span id="motor-state">MOTOR: STOP</span>
+    <span id="battery-status">BAT: --</span>
+  </div>
+
+  <div id="estop-status">E-STOP: RELEASED</div>
+  <div id="service-status">via: --</div>
+
+  <div id="bottom-bar">
+    <button id="estop-btn" onclick="toggleEstop()">DRIVE</button>
+  </div>
+
+  <script>
+    let estopEngaged = false;
+    let serviceVia = null;
+    const btn = document.getElementById('estop-btn');
+    const statusEl = document.getElementById('estop-status');
+    const svcEl = document.getElementById('service-status');
+    const camEl = document.getElementById('camera-status');
+    const motorEl = document.getElementById('motor-state');
+    const battEl = document.getElementById('battery-status');
+
+    document.getElementById('video').src = '/video_feed?' + Date.now();
+
+    function toggleEstop() {
+      const action = estopEngaged ? 'release' : 'engage';
+      btn.disabled = true;
+      fetch('/estop', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: action, reason: 'dashboard'})
+      }).then(r => r.json()).then(data => {
+        if (data.success !== undefined) {
+          estopEngaged = (action === 'engage');
+          serviceVia = data.via_service ? 'service' : 'topic';
+          updateUI();
+        }
+        btn.disabled = false;
+      }).catch(() => { btn.disabled = false; });
+    }
+
+    function updateUI() {
+      if (estopEngaged) {
+        btn.textContent = 'E-STOP';
+        btn.classList.add('engaged');
+        statusEl.textContent = 'E-STOP: ENGAGED';
+        statusEl.classList.add('engaged');
+      } else {
+        btn.textContent = 'DRIVE';
+        btn.classList.remove('engaged');
+        statusEl.textContent = 'E-STOP: RELEASED';
+        statusEl.classList.remove('engaged');
+      }
+      svcEl.textContent = 'via: ' + (serviceVia || '--');
+    }
+
+    function pollStatus() {
+      fetch('/status').then(r => r.json()).then(data => {
+        camEl.textContent = 'CAM: ' + (data.camera_ok ? 'OK' : 'ERR');
+        camEl.className = data.camera_ok ? '' : 'error';
+        motorEl.textContent = 'MOTOR: ' + (data.motor_state || 'UNK').toUpperCase();
+      }).catch(() => {});
+    }
+
+    function pollBattery() {
+      fetch('/battery').then(r => r.json()).then(data => {
+        const pct = data.percent.toFixed(0);
+        let text = 'BAT: ' + pct + '%';
+        if (data.critical) {
+          text += ' CRIT';
+          battEl.style.color = '#f44';
+        } else if (data.low) {
+          text += ' LOW';
+          battEl.style.color = '#fa4';
+        } else {
+          battEl.style.color = '#ccc';
+        }
+        battEl.textContent = text;
+      }).catch(() => {});
+    }
+
+    setInterval(pollStatus, 2000);
+    setInterval(pollBattery, 2000);
+    pollBattery();
+  </script>
+</body>
+</html>"""
 
 # Suppress Flask's default startup banner in the ROS2 log
 log = logging.getLogger("werkzeug")
@@ -93,11 +248,19 @@ class VisionServerNode(Node):
         self._override_pub = self.create_publisher(
             Bool, "/teleop_override", latching_qos)
 
+        self._estop_pub = self.create_publisher(
+            Bool, "/e_stop", latching_qos)
+
         self._status_pub = self.create_publisher(
             String, "/vision/status", 10)
 
         self._diag_pub = self.create_publisher(
             DiagnosticArray, "/diagnostics", 10)
+
+        self._estop_svc = self.create_client(EmergencyStop, "/emergency_stop")
+
+        self._batt_sub = self.create_subscription(
+            BatteryState, "/battery_state", self._batt_cb, 10)
 
         # ── State ───────────────────────────────────────────────────────────
         self._frame_lock   = threading.Lock()
@@ -107,6 +270,13 @@ class VisionServerNode(Node):
         self._override_on  = False
         self._cam_ok       = False
         self._frame_count  = 0
+
+        self._estop_state = False
+        self._estop_svc_available = False
+        self._estop_lock = threading.Lock()
+        self._last_estop_response = {"success": False, "message": ""}
+
+        self._battery = {"percent": 0.0, "voltage": 0.0, "low": False, "critical": False}
 
         # Twist map: move string → (linear_x, angular_z)
         self._twist_map = {
@@ -128,6 +298,7 @@ class VisionServerNode(Node):
         self.create_timer(0.5,   self._override_watchdog)  # release override
         self.create_timer(1.0,   self._publish_status)
         self.create_timer(2.0,   self._publish_diagnostics)
+        self.create_timer(5.0,   self._estop_service_watcher)  # watch for service availability
 
         self.get_logger().info(
             f"vision_server ready | cam={self._cam_dev} "
@@ -233,6 +404,41 @@ class VisionServerNode(Node):
             self._override_on = False
             self.get_logger().info("Teleop override: OFF (timeout)")
 
+    def _estop_service_watcher(self):
+        """Periodically check if /emergency_stop service is up."""
+        was_available = self._estop_svc_available
+        self._estop_svc_available = self._estop_svc.service_is_ready()
+        if self._estop_svc_available and not was_available:
+            self.get_logger().info("Emergency stop service now available")
+        elif not self._estop_svc_available and was_available:
+            self.get_logger().warn("Emergency stop service lost")
+
+    def _estop_svc_done_callback(self, future):
+        """Handle async service call response."""
+        try:
+            result = future.result()
+            with self._estop_lock:
+                self._last_estop_response = {
+                    "success": bool(result.success),
+                    "message": str(result.message),
+                }
+        except Exception as e:
+            with self._estop_lock:
+                self._last_estop_response = {
+                    "success": False,
+                    "message": f"service call failed: {e}",
+                }
+
+    def _batt_cb(self, msg: BatteryState):
+        """Cache latest battery state for the /battery Flask route."""
+        with self._frame_lock:
+            self._battery = {
+                "percent":  float(msg.percent),
+                "voltage":  float(msg.voltage),
+                "low":      bool(msg.low_battery_warning),
+                "critical": bool(msg.critical_battery),
+            }
+
     # ════════════════════════════════════════════════════════════════════════
     # Flask HTTP server
     # ════════════════════════════════════════════════════════════════════════
@@ -289,6 +495,66 @@ class VisionServerNode(Node):
         @app.route("/health")
         def health():
             return jsonify({"ok": True})
+
+        @app.route("/dashboard")
+        def dashboard():
+            return Response(
+                DASHBOARD_HTML,
+                mimetype="text/html",
+            )
+
+        @app.route("/battery")
+        def battery():
+            with self._frame_lock:
+                b = self._battery
+            return jsonify({
+                "percent":  b["percent"],
+                "voltage":  round(b["voltage"], 2),
+                "low":      b["low"],
+                "critical": b["critical"],
+            })
+
+        @app.route("/estop", methods=["POST"])
+        def estop():
+            data = request.get_json(silent=True) or {}
+            action = data.get("action", "").lower()
+            reason = str(data.get("reason", "operator"))
+
+            if action not in ("engage", "release"):
+                return jsonify({
+                    "success": False,
+                    "message": f"Unknown action: '{action}'. Use 'engage' or 'release'.",
+                }), 400
+
+            engage = (action == "engage")
+
+            with self._estop_lock:
+                self._estop_state = engage
+
+                if self._estop_svc_available:
+                    req = EmergencyStop.Request()
+                    req.stop = engage
+                    req.reason = reason
+                    self._estop_svc.call_async(req).add_done_callback(
+                        self._estop_svc_done_callback)
+                    via_service = True
+                else:
+                    self._estop_pub.publish(Bool(data=engage))
+                    via_service = False
+
+                response_success = True
+                response_message = (
+                    f"E-stop {'engaged' if engage else 'released'} via topic"
+                    if not via_service
+                    else f"E-stop {'engaged' if engage else 'released'} via service"
+                )
+
+            return jsonify({
+                "success":   response_success,
+                "message":   response_message,
+                "estop":     self._estop_state,
+                "via_service": via_service,
+            })
 
         app.run(host="0.0.0.0", port=self._port,
                 threaded=True, debug=False)

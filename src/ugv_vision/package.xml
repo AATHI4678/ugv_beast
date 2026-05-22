@@ -17,6 +17,7 @@
   <depend>sensor_msgs</depend>
   <depend>diagnostic_msgs</depend>
 
+  <depend>ugv_interfaces</depend>
   <exec_depend>python3-flask</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-opencv</exec_depend>

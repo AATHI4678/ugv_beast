@@ -15,3 +15,7 @@ vision_server:
     # Seconds after last non-stop command before teleop override is released
     # and Nav2 resumes control
     override_timeout: 1.5
+
+    # E-stop: uses /emergency_stop service when available, falls back to
+    # direct /e_stop topic publish when not. No auth required.
+    # Example: POST http://host:5000/estop  {"action": "engage", "reason": "operator"}
